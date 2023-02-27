@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Face capture</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.css" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.145.0/three.min.js"></script>
+    <script src="fflate.min.js"></script>
+    <script src="FBXLoader.js"></script>
+    <script src="GLTFLoader.js"></script>
+    <script src="OrbitControls.js"></script>
+    <style>
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .abs {
+        position: absolute;
+      }
+
+      a {
+        color: white;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: lightblue;
+      }
+
+      body {
+        bottom: 0;
+        font-family: "Titillium Web", sans-serif;
+        color: white;
+        left: 0;
+        margin: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+        transform-origin: 0px 0px;
+        overflow: hidden;
+      }
+
+      .container {
+        position: absolute;
+        background-color: #596e73;
+        width: 100%;
+        max-height: 100%;
+      }
+
+      .input_video {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .input_video.selfie {
+        transform: scale(-1, 1);
+      }
+
+      .input_image {
+        position: absolute;
+      }
+
+      .canvas-container {
+        display: flex;
+        width: 100%;
+        height: 50%;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .threejs-canvas {
+        width: 100%;
+        height: 50%;
+      }
+
+      .logo {
+        bottom: 10px;
+        right: 20px;
+      }
+
+      .logo .title {
+        color: white;
+        font-size: 28px;
+      }
+
+      .logo .subtitle {
+        position: relative;
+        color: white;
+        font-size: 10px;
+        left: -30px;
+        top: 20px;
+      }
+
+      .control-panel {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        transform: scale(80%);
+        transform-origin: top left;
+      }
+
+      .loading {
+        display: flex;
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        align-items: center;
+        backface-visibility: hidden;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 1s;
+      }
+
+      .loading .message {
+        font-size: x-large;
+      }
+
+      .loading .spinner {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        animation: spin 1s linear infinite;
+        border: 32px solid #bebebe;
+        border-top: 32px solid #3498db;
+        border-radius: 50%;
+      }
+
+      .loaded .loading {
+        opacity: 0;
+      }
+
+      .shoutout {
+        left: 0;
+        right: 0;
+        bottom: 40px;
+        text-align: center;
+        font-size: 24px;
+        position: absolute;
+      }
+    </style>
+  </head>
+  <body translate="no">
+    <div class="container">
+      <video class="input_video selfie"></video>
+      <div class="canvas-container">
+        <canvas class="mediapipe-canvas" width="1280px" height="720px"></canvas>
+      </div>
+      <div class="canvas-container">
+        <canvas class="threejs-canvas"></canvas>
+      </div>
+      <div class="loading">
+        <div class="spinner"></div>
+        <div class="message"> Loading </div>
+      </div>
+    </div>
+    <div class="control-panel"></div>
+    <script src="https://cpwebassets.codepen.io/assets/common/stopExecutionOnTimeout-1b93190375e9ccc259df3a57c1abc0e64599724ae30d7ea4c6877eb615f89387.js"></script>
+    <script id="rendered-js" type="module">
+      const kARKitShapeNames = [
+        "eyeBlinkRight",
+        "eyeLookDownRight",
+        "eyeLookInRight",
+        "eyeLookOutRight",
+        "eyeLookUpRight",
+        "eyeSquintRight",
+        "eyeWideRight",
+        "eyeBlinkLeft",
+        "eyeLookDownLeft",
+        "eyeLookInLeft",
+        "eyeLookOutLeft",
+        "eyeLookUpLeft",
+        "eyeSquintLeft",
+        "eyeWideLeft",
+        "jawForward",
+        "jawRight",
+        "jawLeft",
+        "jawOpen",
+        "mouthClose",
+        "mouthFunnel",
+        "mouthPucker",
+        "mouthRight",
+        "mouthLeft",
+        "mouthSmileRight",
+        "mouthSmileLeft",
+        "mouthFrownRight",
+        "mouthFrownLeft",
+        "mouthDimpleRight",
+        "mouthDimpleLeft",
+        "mouthStretchRight",
+        "mouthStretchLeft",
+        "mouthRollLower",
+        "mouthRollUpper",
+        "mouthShrugLower",
+        "mouthShrugUpper",
+        "mouthPressRight",
+        "mouthPressLeft",
+        "mouthLowerDownRight",
+        "mouthLowerDownLeft",
+        "mouthUpperUpRight",
+        "mouthUpperUpLeft",
+        "browDownRight",
+        "browDownLeft",
+        "browInnerUp",
+        "browOuterUpRight",
+        "browOuterUpLeft",
+        "cheekPuff",
+        "cheekSquintRight",
+        "cheekSquintLeft",
+        "noseSneerRight",
+        "noseSneerLeft",
+        "tongueOut"
+      ];
+
+      let kARKitShapeIndices = {};
+      for (let idx = 0; idx < kARKitShapeNames.length; ++idx) {
+        kARKitShapeIndices[kARKitShapeNames[idx]] = idx;
+      }
+
+      function LowPassFilter(alpha, initval){
+        var that = {};
+        var y = initval || 0;
+        var s = y;
+        
+        function lowpass(v){
+          y = v;
+          s = alpha * v + (1 - alpha) * s;
+          return s;
+        }
+        
+        that.filter = function(v){
+          y = v;
+          s = v;
+          that.filter = lowpass;
+          return s;
+        }
+        
+        that.filterWithAlpha = function(v, a){
+          alpha = a;
+          return that.filter(v);
+        }
+        
+        that.hasLastRawValue = function(){
+          return that.filter === lowpass;
+        }
+        
+        that.lastRawValue = function(){
+          return y;
+        }
+        
+        return that;
+      }
+
+      function OneEuroFilter(freq, mincutoff, beta, dcutoff){
+        var that = {};
+        var x = LowPassFilter(alpha(mincutoff));
+        var dx = LowPassFilter(alpha(dcutoff));
+        var lastTime = undefined;
+        
+        mincutoff = mincutoff || 1;
+        beta = beta || 0;
+        dcutoff = dcutoff || 1;
+        
+        function alpha(cutoff){
+          var te = 1 / freq;
+          var tau = 1 / (2 * Math.PI * cutoff);
+          return 1 / (1 + tau / te);
+        }
+        
+        that.filter = function(v, timestamp){
+          if(lastTime !== undefined && timestamp !== undefined)
+            freq = 1 / (timestamp - lastTime);
+          lastTime = timestamp;
+          var dvalue = x.hasLastRawValue() ? (v - x.lastRawValue()) * freq : 0;
+          var edvalue = dx.filterWithAlpha(dvalue, alpha(dcutoff));
+          var cutoff = mincutoff + beta * Math.abs(edvalue);
+          return x.filterWithAlpha(v, alpha(cutoff));
+        }
+        
+        return that;
+      }
+
+      const controls = window;
+      const drawingUtils = window;
+      const mpFaceMesh = window;
+      const config = {
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@` + `${mpFaceMesh.VERSION}/${file}`;
+        }
+      };
+
+      // Our input frames will come from here.
+      const videoElement = document.getElementsByClassName('input_video')[0];
+      const controlsElement = document.getElementsByClassName('control-panel')[0];
+      const mpCanvasElement = document.getElementsByClassName('mediapipe-canvas')[0];
+      const mpCanvasCtx = mpCanvasElement.getContext('2d');
+      const thCanvasElement = document.getElementsByClassName('threejs-canvas')[0];
+
+      const renderer = new THREE.WebGLRenderer( { canvas: thCanvasElement } );
+      const scene = new THREE.Scene();
+
+      renderer.setSize( window.innerWidth / 2, window.innerHeight / 2 );
+      renderer.setPixelRatio( window.devicePixelRatio );
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ReinhardToneMapping;
+      renderer.toneMappingExposure = 3;
+
+      scene.add(new THREE.AxesHelper(5))
+
+      const light = new THREE.PointLight()
+      light.position.set(0.8, 1.4, 1.0)
+      scene.add(light)
+
+      const ambientLight = new THREE.AmbientLight()
+      scene.add(ambientLight)
+
+      const camera = new THREE.PerspectiveCamera(
+          50,
+          thCanvasElement.width / thCanvasElement.height,
+          0.1,
+          1000
+      )
+
+      const sess = new onnx.InferenceSession({backendHint: 'webgl'})
+      await sess.loadModel('model.onnx')
+
+      let models = [], root = null, head = null;
+
+      const postLoad = (root) => {
+        for (const child of Object.values(root.children)) {
+          if (child.morphTargetDictionary) {
+            child.modelToARKitMap = child.modelToARKitMap || {};
+            models.push(child);
+            const shapeMap = Object.entries(child.morphTargetDictionary);
+            for (const key of kARKitShapeNames) {
+              for (const item of shapeMap) {
+                if (item[0].includes(key)) {
+                  child.modelToARKitMap[key] = item[1];
+                }
+              }
+            }
+          }
+        }
+      };
+
+      if (true) {
+        const loader = new THREE.GLTFLoader();
+        loader.load('rachid_arkit_ready.glb', (object) => {
+            root = object.scene.children[0];
+            head = root.children[0].children[0].children[0].children[0].children[0].children[0];
+            scene.add(root);
+            postLoad(root);
+          });
+
+        camera.position.set(0, 1.7, 0.5)
+      }
+      else {
+        const loader = new THREE.FBXLoader();
+        loader.load('chr13_ActorKit_v25.fbx', (object) => {
+            root = object;
+            head = root.children[1];
+            scene.add(root);
+            postLoad(root);
+          });
+  
+        camera.position.set(0, 13, 80)
+      }
+
+      const orbit = new THREE.OrbitControls(camera, renderer.domElement)
+      orbit.target.set(0, 1.7, 0)
+      orbit.update();
+
+      const render = () => {
+        requestAnimationFrame(render);
+        renderer.render(scene, camera);
+      }
+      render();
+
+
+      /**
+       * Solution options.
+       */
+      const solutionOptions = {
+        drawLandmarks: false,
+        selfieMode: true,
+        enableFaceGeometry: false,
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        calibrate: true,
+        filterInput: true,
+        filterOutput: true,
+        tweaks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      };
+      // We'll add this to our control panel later, but we'll save it here so we can
+      // call tick() each time the graph runs.
+      const fpsControl = new controls.FPS();
+      // Optimization: Turn off animated spinner after its hiding animation is done.
+      const spinner = document.querySelector('.loading');
+      spinner.ontransitionend = () => {
+        spinner.style.display = 'none';
+      };
+
+      function screen_align_and_normalize(arr, xf) {
+        // Rotate to camera
+        var pivot = new THREE.Vector3();
+        for (var p of arr) {
+          pivot.add(p);
+        }
+        pivot.multiplyScalar(1.0 / arr.length);
+
+        for (var p of arr) {
+          p.x = p.x - pivot.x;
+          p.y = p.y - pivot.y;
+          p.z = p.z - pivot.z;
+        }
+        for (var p of arr) {
+          var t = new THREE.Vector3(p.x, p.y, p.z);
+          t.applyMatrix3(xf);
+          p.x = t.x;
+          p.y = t.y;
+          p.z = t.z;
+        }
+        for (var p of arr) {
+          p.x = p.x + pivot.x;
+          p.y = p.y + pivot.y;
+          p.z = p.z + pivot.z;
+        }
+
+        // Normalize
+        var amin = new THREE.Vector3(1,1,1);
+        for (var p of arr) {
+          amin.min(p);
+        }
+        var amax = new THREE.Vector3(0,0,0);
+        for (var p of arr) {
+          amax.max(p);
+        }
+
+        for (var p of arr) {
+          p.x = (p.x - amin.x) / (amax.x - amin.x);
+          p.y = (p.y - amin.y) / (amax.y - amin.y);
+          p.z = (p.z - amin.z) / (amax.z - amin.z);
+        }
+        return arr;
+      }
+
+      function calc_simple_xf(arr, idxF0, idxF1, idxF2, idxR0, idxR1) {
+        const posF0 = new THREE.Vector3(arr[idxF0].x, arr[idxF0].y, arr[idxF0].z);
+        const posF1 = new THREE.Vector3(arr[idxF1].x, arr[idxF1].y, arr[idxF1].z);
+        const posF2 = new THREE.Vector3(arr[idxF2].x, arr[idxF2].y, arr[idxF2].z);
+        const v0    = new THREE.Vector3(); v0.subVectors(posF2, posF0);
+        const v1    = new THREE.Vector3(); v1.subVectors(posF1, posF0);
+        const vfw   = new THREE.Vector3(); vfw.crossVectors(v1, v0).normalize();
+
+        // right
+        const posR0 = new THREE.Vector3(arr[idxR0].x, arr[idxR0].y, arr[idxR0].z);
+        const posR1 = new THREE.Vector3(arr[idxR1].x, arr[idxR1].y, arr[idxR1].z);
+        const vrt = new THREE.Vector3(); vrt.subVectors(posR1, posR0).normalize();
+
+        // up
+        const vup = new THREE.Vector3(); vup.crossVectors(vfw, vrt);
+        vrt.crossVectors(vup, vfw);
+
+        const xf = new THREE.Matrix3();
+        xf.set(vrt.x, vrt.y, vrt.z,
+               vup.x, vup.y, vup.z,
+               vfw.x, vfw.y, vfw.z);
+        return xf;
+      }
+
+      function calc_left_eye_xf(arr) {
+        return calc_simple_xf(arr, 23, 22, 230, 33, 133);
+      }
+
+      function calc_right_eye_xf(arr) {
+        return calc_simple_xf(arr, 253, 450, 252, 362, 263);
+      }
+
+      function calc_head_xf(arr, filterTime) {
+        // average a few normals to get a forward vec
+        const pos197 = new THREE.Vector3(headfilters[0][0].filter(arr[197].x, filterTime),
+                                         headfilters[0][1].filter(arr[197].y, filterTime),
+                                         headfilters[0][2].filter(arr[197].z, filterTime));
+
+        const pos234 = new THREE.Vector3(headfilters[1][0].filter(arr[234].x, filterTime),
+                                         headfilters[1][1].filter(arr[234].y, filterTime),
+                                         headfilters[1][2].filter(arr[234].z, filterTime));
+
+        const pos152 = new THREE.Vector3(headfilters[2][0].filter(arr[152].x, filterTime),
+                                         headfilters[2][1].filter(arr[152].y, filterTime),
+                                         headfilters[2][2].filter(arr[152].z, filterTime));
+
+        const pos454 = new THREE.Vector3(headfilters[3][0].filter(arr[454].x, filterTime),
+                                         headfilters[3][1].filter(arr[454].y, filterTime),
+                                         headfilters[3][2].filter(arr[454].z, filterTime));
+
+        const v0     = new THREE.Vector3(); v0.subVectors(pos152, pos197);
+        const v1     = new THREE.Vector3(); v1.subVectors(pos454, pos197);
+        const v2     = new THREE.Vector3(); v2.subVectors(pos234, pos197);
+
+        const f1     = new THREE.Vector3(); f1.crossVectors(v1, v0).normalize();
+        const f2     = new THREE.Vector3(); f2.crossVectors(v0, v2).normalize();
+
+        const vfw    = new THREE.Vector3(); vfw.addVectors(f1, f2).multiplyScalar(0.5);
+        vfw.y = -vfw.y;
+
+        // corrections
+        const xcorr = new THREE.Quaternion();
+        xcorr.setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.6);
+        vfw.applyQuaternion(xcorr);
+
+        // right
+        const vrt    = new THREE.Vector3(); vrt.subVectors(pos454, pos234).normalize();
+
+        // up
+        const vup    = new THREE.Vector3(); vup.crossVectors(vfw, vrt);
+        vrt.crossVectors(vup, vfw);
+
+        const xf     = new THREE.Matrix3();
+        xf.set(vrt.x, vrt.y, vrt.z,
+               vup.x, vup.y, vup.z,
+               vfw.x, vfw.y, vfw.z);
+        return xf;
+      }
+
+      function calc_mouth_xf(arr) {
+        // average a few normals to get a forward vec
+        const pos2   = new THREE.Vector3(arr[2].x, arr[2].y, arr[2].z);
+        const pos97  = new THREE.Vector3(arr[97].x, arr[97].y, arr[97].z);
+        const pos164 = new THREE.Vector3(arr[164].x, arr[164].y, arr[164].z);
+        const pos326 = new THREE.Vector3(arr[326].x, arr[326].y, arr[326].z);
+
+        const v0     = new THREE.Vector3(); v0.subVectors(pos164, pos2);
+        const v1     = new THREE.Vector3(); v1.subVectors(pos326, pos2);
+        const v2     = new THREE.Vector3(); v2.subVectors(pos97, pos2);
+
+        const f1     = new THREE.Vector3(); f1.crossVectors(v1, v0).normalize();
+        const f2     = new THREE.Vector3(); f2.crossVectors(v0, v2).normalize();
+
+        const vfw    = new THREE.Vector3(); vfw.addVectors(f1, f2).multiplyScalar(0.5);
+
+        // right
+        const pos312 = new THREE.Vector3(arr[312].x, arr[312].y, arr[312].z);
+        const pos82  = new THREE.Vector3(arr[82].x, arr[82].y, arr[82].z);
+        const vrt    = new THREE.Vector3(); vrt.subVectors(pos312, pos82).normalize();
+
+        // up
+        const vup    = new THREE.Vector3(); vup.crossVectors(vfw, vrt);
+        vrt.crossVectors(vup, vfw);
+
+        const xf     = new THREE.Matrix3();
+        xf.set(vrt.x, vrt.y, vrt.z,
+               vup.x, vup.y, vup.z,
+               vfw.x, vfw.y, vfw.z);
+        return xf;
+      }
+
+      var headfilters = [], ifilters = [], filters = [], filterFreq = 30, filterTime = 0.0, filterDT = (1.0 / filterFreq);
+      for (var i = 0; i < 4; ++i) {
+        const v = [];
+        v.push(OneEuroFilter(filterFreq, 2.0, 100.0, 2.0));
+        v.push(OneEuroFilter(filterFreq, 2.0, 100.0, 2.0));
+        v.push(OneEuroFilter(filterFreq, 2.0, 100.0, 2.0));
+        headfilters.push(v);
+      }
+      for (var i = 0; i < 100; ++i) {
+        //filters.push(OneEuroFilter(filterFreq, 1000, 0.0, 1000));
+        filters.push(OneEuroFilter(filterFreq, 1.0, 500.0, 1.0));
+      }
+      for (var i = 0; i < 478 * 3; ++i) {
+        //filters.push(OneEuroFilter(filterFreq, 1000, 0.0, 1000));
+        ifilters.push(OneEuroFilter(filterFreq, 1.0, 150.0, 1.0));
+      }
+
+      function normalize_landmarks(multi_face_landmarks, filterTime) {
+        const kMouthIndices = [
+          // lips
+          0, 11, 12, 13, 14, 15, 16, 17, 37, 38, 39, 40, 41, 42, 61, 62, 72, 73, 74, 76, 77, 78, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 95, 96, 146, 178, 179, 180, 181, 183, 184, 185, 191, 267, 268, 269, 270, 271, 272, 291, 292, 302, 303, 304, 306, 307, 308, 310, 311, 312, 314, 315, 316, 317, 318, 319, 320, 321, 324, 325, 375, 402, 403, 404, 405, 407, 408, 409,
+          // one ring of tris bordering lips
+          18, 43, 57, 83, 92, 106, 164, 165, 167, 182, 186, 273, 287, 313, 322, 335, 391, 393, 406, 410
+        ];
+
+        const kLeftEyeIndices = [
+          // socket
+          7, 33, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246,
+          // first ring
+          22, 23, 24, 25, 26, 27, 28, 29, 30, 56, 110, 112, 130, 190, 243, 247,
+          // second ring
+          31, 113, 189, 221, 222, 223, 224, 225, 226, 228, 229, 230, 231, 232, 233, 244,
+          // brow row 1
+          46, 52, 53, 55, 65,
+          // brow row 2
+          63, 66, 70, 105, 107,
+          // brow row 3
+          68, 69, 71, 104, 108
+        ];
+
+        const kRightEyeIndices = [
+          // socket
+          249, 263, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466,
+          // first ring
+          252, 253, 254, 255, 256, 257, 258, 259, 260, 286, 339, 341, 359, 414, 463, 467,
+          // second ring
+          261, 342, 413, 441, 442, 443, 444, 445, 446, 448, 449, 450, 451, 452, 453, 464,
+          // brow row 1
+          276, 282, 283, 285, 295,
+          // brow row 2
+          293, 296, 300, 334, 336,
+          // brow row 3
+          298, 299, 301, 333, 337
+        ];
+
+        if (solutionOptions.filterInput) {
+          for (var idx = 0; idx < multi_face_landmarks[0].length; idx++) {
+            multi_face_landmarks[0][idx].x = ifilters[3 * idx + 0].filter(multi_face_landmarks[0][idx].x, filterTime);
+            multi_face_landmarks[0][idx].y = ifilters[3 * idx + 1].filter(multi_face_landmarks[0][idx].y, filterTime);
+            multi_face_landmarks[0][idx].z = ifilters[3 * idx + 2].filter(multi_face_landmarks[0][idx].z, filterTime);
+          }
+        }
+
+        var arr = multi_face_landmarks[0].slice();
+
+        var arrMouth = [], arrLeftEye = [], arrRightEye = []
+        for (var idx of kMouthIndices) { arrMouth.push(arr[idx]); }
+        for (var idx of kLeftEyeIndices) { arrLeftEye.push(arr[idx]); }
+        for (var idx of kRightEyeIndices) { arrRightEye.push(arr[idx]); }
+
+        const headPose = new THREE.Matrix4();
+        headPose.setFromMatrix3(calc_head_xf(arr, filterTime));
+        head.setRotationFromMatrix(headPose);
+
+        arrMouth = screen_align_and_normalize(arrMouth, calc_mouth_xf(arr));
+        arrLeftEye = screen_align_and_normalize(arrLeftEye, calc_left_eye_xf(arr));
+        arrRightEye = screen_align_and_normalize(arrRightEye, calc_right_eye_xf(arr));
+
+        // Copy result to mediapipe mesh before we display it
+        // for (var idx = 0; idx < multi_face_landmarks[0].length; idx++) {
+        //   multi_face_landmarks[0][idx].x = 0.0;
+        //   multi_face_landmarks[0][idx].y = 0.0;
+        //   multi_face_landmarks[0][idx].z = 0.0;
+        // }
+
+        var src = 0
+        for (var idx of kMouthIndices) {
+          multi_face_landmarks[0][idx].x = arrMouth[src].x;
+          multi_face_landmarks[0][idx].y = arrMouth[src].y;
+          multi_face_landmarks[0][idx].z = arrMouth[src].z;
+          src = src + 1
+        }
+
+        src = 0
+        for (var idx of kLeftEyeIndices) {
+          multi_face_landmarks[0][idx].x = arrLeftEye[src].x;
+          multi_face_landmarks[0][idx].y = arrLeftEye[src].y;
+          multi_face_landmarks[0][idx].z = arrLeftEye[src].z;
+          src = src + 1
+        }
+
+        src = 0
+        for (var idx of kRightEyeIndices) {
+          multi_face_landmarks[0][idx].x = arrRightEye[src].x;
+          multi_face_landmarks[0][idx].y = arrRightEye[src].y;
+          multi_face_landmarks[0][idx].z = arrRightEye[src].z;
+          src = src + 1
+        }
+
+        return arrMouth.concat(arrLeftEye).concat(arrRightEye);
+      }
+
+      var neutral = null;
+
+      async function onResults(results) {
+        // Hide the spinner.
+        document.body.classList.add('loaded');
+        // Update the frame rate.
+        fpsControl.tick();
+        // Draw the overlays.
+        mpCanvasCtx.save();
+        mpCanvasCtx.clearRect(0, 0, mpCanvasElement.width, mpCanvasElement.height);
+        mpCanvasCtx.drawImage(results.image, 0, 0, mpCanvasElement.width, mpCanvasElement.height);
+        if (results.multiFaceLandmarks) {
+          const landmarks = results.multiFaceLandmarks[0];
+
+          if (models && landmarks) {
+            filterTime += filterDT;
+
+            const subset = normalize_landmarks(results.multiFaceLandmarks, filterTime);
+
+            var input = [];
+            for (const p of subset) {
+              input.push(p.x, p.y);
+            }
+
+            if (neutral === null || solutionOptions.calibrate) {
+              neutral = [];
+              for (const p of subset) {
+                neutral.push(p.x, p.y);
+              }
+              solutionOptions.calibrate = false;
+            }
+
+            for (var i = 0; i < input.length; i++) {
+              input[i] = input[i] - neutral[i];
+            }
+
+            const inputTensor = new onnx.Tensor(input, 'float32', [1, 225 * 2]);
+            const outputMap = await sess.run([inputTensor]);
+            const outputData = outputMap.values().next().value.data;
+
+            // Remap some shapes
+            if (solutionOptions.tweaks) {
+              const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+              const sigmoid = (x) => {
+                return clamp(x * x / (2 * (x * x - x) + 1), 0, 1);
+              };
+
+              outputData[17] = THREE.MathUtils.clamp(outputData[17] * 1.3 - 0.01, 0, 1); // jawOpen
+              outputData[18] = THREE.MathUtils.clamp(outputData[18] * 1.1, 0, 1); // mouthClose
+              outputData[25] = THREE.MathUtils.clamp(outputData[25] * 1.2, 0, 1); // mouthFrownRight
+              outputData[26] = THREE.MathUtils.clamp(outputData[26] * 1.2, 0, 1); // mouthFrownLeft
+              outputData[37] = THREE.MathUtils.clamp(outputData[37] * 1.1, 0, 1); // mouthLowerDownRight
+              outputData[38] = THREE.MathUtils.clamp(outputData[38] * 1.1, 0, 1); // mouthLowerDownLeft
+              outputData[39] = THREE.MathUtils.clamp(outputData[39] * 1.1, 0, 1); // mouthUpperUpRight
+              outputData[40] = THREE.MathUtils.clamp(outputData[40] * 1.1, 0, 1); // mouthUpperUpLeft
+
+              outputData[0]  = THREE.MathUtils.clamp(outputData[0] * 1.5 + 0.1, 0, 1); // eyeBlinkRight
+              outputData[7]  = THREE.MathUtils.clamp(outputData[7] * 1.5 + 0.1, 0, 1); // eyeBlinkLeft
+
+              outputData[0] = sigmoid(outputData[0]);
+              outputData[7] = sigmoid(outputData[7]);
+
+              outputData[49] = THREE.MathUtils.clamp(outputData[49] * 1.6, 0, 1); // noseSneerRight
+              outputData[50] = THREE.MathUtils.clamp(outputData[50] * 1.6, 0, 1); // noseSneerLeft
+
+              outputData[6]  = THREE.MathUtils.clamp(outputData[6] * 2.0 - 0.3, 0, 1); // eyeWideRight
+              outputData[13] = THREE.MathUtils.clamp(outputData[13] * 2.0 - 0.3, 0, 1); // eyeWideLeft
+
+              var md = new THREE.Vector2(landmarks[14].x - landmarks[13].x, landmarks[14].y - landmarks[13].y);
+              outputData[17] = THREE.MathUtils.clamp(md.length() * 1.5 - 0.15, 0, 1);
+              outputData[18] = THREE.MathUtils.clamp(outputData[18], 0.0, 0.2);
+
+              outputData[ kARKitShapeIndices["jawForward"] ] = 0;
+              outputData[ kARKitShapeIndices["jawRight"] ] = 0;
+              outputData[ kARKitShapeIndices["jawLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthClose"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthFunnel"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthPucker"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthDimpleRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthDimpleLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthStretchRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthStretchLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthRollLower"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthRollUpper"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthShrugLower"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthShrugUpper"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthPressRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthPressLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthLowerDownRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthLowerDownLeft"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthUpperUpRight"] ] = 0;
+              // outputData[ kARKitShapeIndices["mouthUpperUpLeft"] ] = 0;
+              outputData[ kARKitShapeIndices["cheekPuff"] ] = 0;
+              outputData[ kARKitShapeIndices["cheekSquintRight"] ] = 0;
+              outputData[ kARKitShapeIndices["cheekSquintLeft"] ] = 0;
+              outputData[ kARKitShapeIndices["tongueOut"] ] = 0;
+            }
+
+            // Remap to the model's blendshapes
+            let src = 0;
+            for (const key of kARKitShapeNames) {
+              const v = solutionOptions.filterOutput
+                ? filters[src].filter(THREE.MathUtils.clamp(outputData[src], 0, 1), filterTime)
+                : THREE.MathUtils.clamp(outputData[src], 0, 1);
+              src = src + 1;
+
+              for (let i = 0; i < models.length; i++) {
+                const model = models[i];
+                if (model.modelToARKitMap) {
+                  const dst = model.modelToARKitMap[key];
+                  if (dst !== undefined) {
+                    model.morphTargetInfluences[dst] = v;
+                  }
+                }
+              }
+            }
+          }
+
+          if (solutionOptions.drawLandmarks) {
+            for (const landmarks of results.multiFaceLandmarks) {
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_TESSELATION, {
+                color: '#C0C0C070',
+                lineWidth: 1
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_RIGHT_EYE, {
+                color: '#FF3030'
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_RIGHT_EYEBROW, {
+                color: '#FF3030'
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_LEFT_EYE, {
+                color: '#30FF30'
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_LEFT_EYEBROW, {
+                color: '#30FF30'
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_FACE_OVAL, {
+                color: '#E0E0E0'
+              });
+              drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_LIPS, {
+                color: '#E0E0E0'
+              });
+              if (solutionOptions.refineLandmarks) {
+                drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_RIGHT_IRIS, {
+                  color: '#FF3030'
+                });
+                drawingUtils.drawConnectors(mpCanvasCtx, landmarks, mpFaceMesh.FACEMESH_LEFT_IRIS, {
+                  color: '#30FF30'
+                });
+              }
+            }
+          }
+        }
+        mpCanvasCtx.restore();
+      }
+
+      window.addEventListener('resize', () => {
+        const width = window.innerWidth, height = window.innerHeight / 2;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+      }, false);
+
+      const faceMesh = new mpFaceMesh.FaceMesh(config);
+      faceMesh.setOptions(solutionOptions);
+      faceMesh.onResults(onResults);
+      // Present a control panel through which the user can manipulate the solution
+      // options.
+      new controls.ControlPanel(controlsElement, solutionOptions).add([
+        // new controls.StaticText({
+        //   title: 'MediaPipe Settings'
+        // }),
+        new controls.SourcePicker({
+          onFrame: async (input, size) => {
+            const aspect = size.height / size.width;
+            let width, height;
+            if (window.innerWidth > window.innerHeight) {
+              height = window.innerHeight;
+              width = height / aspect;
+            } else {
+              width = window.innerWidth;
+              height = width * aspect;
+            }
+            mpCanvasElement.width = width / 2;
+            mpCanvasElement.height = height/ 2;
+
+            await faceMesh.send({
+              image: input
+            });
+          },
+        }),
+        // new controls.Toggle({
+        //   title: 'Refine Landmarks',
+        //   field: 'refineLandmarks'
+        // }),
+        // new controls.Slider({
+        //   title: 'Min Detection Confidence',
+        //   field: 'minDetectionConfidence',
+        //   range: [0, 1],
+        //   step: 0.01
+        // }),
+        // new controls.Slider({
+        //   title: 'Min Tracking Confidence',
+        //   field: 'minTrackingConfidence',
+        //   range: [0, 1],
+        //   step: 0.01
+        // }),
+        // new controls.StaticText({
+        //   title: 'Conversion Settings'
+        // }),
+        new controls.Toggle({
+          title: 'Draw Mediapipe Landmarks',
+          field: 'drawLandmarks'
+        }),
+        new controls.Toggle({
+          title: 'Selfie Mode',
+          field: 'selfieMode'
+        }),
+        new controls.Toggle({
+          title: 'Click to Recalibrate',
+          field: 'calibrate'
+        }),
+        new controls.Toggle({
+          title: 'Filter Mediapipe Landmarks',
+          field: 'filterInput'
+        }),
+        new controls.Toggle({
+          title: 'Filter Blendshapes',
+          field: 'filterOutput'
+        }),
+        new controls.Toggle({
+          title: 'Enable Tweaks',
+          field: 'tweaks'
+        }),
+        fpsControl,
+      ]).on(x => {
+        const options = x;
+        videoElement.classList.toggle('selfie', options.selfieMode);
+        faceMesh.setOptions(options);
+      });
+    </script>
+  </body>
+</html>
