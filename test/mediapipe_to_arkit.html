@@ -52,6 +52,21 @@
         overflow: hidden;
       }
 
+      .calibrate {
+        background-color: #309f93;
+        color: #a3faa3;
+        border-radius: 28px;
+        border: none;
+        padding: 10px 30px;
+        text-align: center;
+        text-decoration: none;
+        font-size: 18px;
+        cursor: pointer;
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+      }
+
       .container {
         position: absolute;
         background-color: #596e73;
@@ -170,6 +185,7 @@
         <div class="spinner"></div>
         <div class="message"> Loading </div>
       </div>
+      <input id="calibrate" type="button" class="calibrate" value="CALIBRATE">
     </div>
     <div class="control-panel"></div>
     <script src="https://cpwebassets.codepen.io/assets/common/stopExecutionOnTimeout-1b93190375e9ccc259df3a57c1abc0e64599724ae30d7ea4c6877eb615f89387.js"></script>
@@ -851,6 +867,10 @@
         renderer.setSize(width, height);
       }, false);
 
+      document.getElementById("calibrate").onclick = () => {
+        solutionOptions.calibrate = true;
+      };
+
       const faceMesh = new mpFaceMesh.FaceMesh(config);
       faceMesh.setOptions(solutionOptions);
       faceMesh.onResults(onResults);
@@ -899,7 +919,7 @@
         //   title: 'Conversion Settings'
         // }),
         new controls.Toggle({
-          title: 'Draw Mediapipe Landmarks',
+          title: 'Draw Input',
           field: 'drawLandmarks'
         }),
         new controls.Toggle({
@@ -907,19 +927,15 @@
           field: 'selfieMode'
         }),
         new controls.Toggle({
-          title: 'Click to Recalibrate',
-          field: 'calibrate'
-        }),
-        new controls.Toggle({
-          title: 'Filter Mediapipe Landmarks',
+          title: 'Filter Input',
           field: 'filterInput'
         }),
         new controls.Toggle({
-          title: 'Filter Blendshapes',
+          title: 'Filter Output',
           field: 'filterOutput'
         }),
         new controls.Toggle({
-          title: 'Enable Tweaks',
+          title: 'Tweaks',
           field: 'tweaks'
         }),
         fpsControl,
