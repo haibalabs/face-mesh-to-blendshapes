@@ -2,7 +2,7 @@ Copyright (c) 2023 Haiba Labs
 
 Author: James Ritts <james@haibalabs.com>
 
-This notebook trains a simple pytorch model to map from [MediaPipe face mesh](http://solutions.mediapipe.dev/face_mesh) landmarks to [ARKit-compatible blendshapes](https://developer.apple.com/documentation/arkit/arfaceanchor/blendshapelocation).
+This notebook (mediapipe_face_mesh_to_blendshapes.ipynb) trains a simple pytorch model to map from [MediaPipe face mesh](http://solutions.mediapipe.dev/face_mesh) landmarks to [ARKit-compatible blendshapes](https://developer.apple.com/documentation/arkit/arfaceanchor/blendshapelocation).
 
 ### [Click here to open the demo.](https://haibalabs.github.io/face-mesh-to-blendshapes/test/mediapipe_to_arkit.html)
 
