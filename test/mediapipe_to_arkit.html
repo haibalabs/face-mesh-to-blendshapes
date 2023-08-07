@@ -5,6 +5,7 @@
     <title>Face capture</title>
     <meta charset="utf-8">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
@@ -26,6 +27,19 @@
         }
       }
 
+      .github-icon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 60px;
+        color: #333;
+        text-decoration: none;
+      }
+
+      .github-icon:hover {
+        color: #000;
+      }
+
       .abs {
         position: absolute;
       }
@@ -41,7 +55,7 @@
 
       body {
         bottom: 0;
-        font-family: "Titillium Web", sans-serif;
+        family: "Titillium Web", sans-serif;
         color: white;
         left: 0;
         margin: 0;
@@ -186,6 +200,9 @@
         <div class="message"> Loading </div>
       </div>
       <input id="calibrate" type="button" class="calibrate" value="CALIBRATE">
+      <a href="https://github.com/haibalabs/face-mesh-to-blendshapes" target="_blank" class="github-icon">
+          <i class="fab fa-github"></i>
+      </a>
     </div>
     <div class="control-panel"></div>
     <script src="https://cpwebassets.codepen.io/assets/common/stopExecutionOnTimeout-1b93190375e9ccc259df3a57c1abc0e64599724ae30d7ea4c6877eb615f89387.js"></script>
