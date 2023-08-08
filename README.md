@@ -6,7 +6,7 @@ This notebook (mediapipe_face_mesh_to_blendshapes.ipynb) trains a simple pytorch
 
 ### [Click here to open the demo.](https://haibalabs.github.io/face-mesh-to-blendshapes/test/mediapipe_to_arkit.html)
 
-Caveats
+Notes
 -
 - We wish to train on object space geo so it doesn't have to learn what a face pose looks like in every possible head orientation. Unfortunately MediaPipe's output is given in [a coordinate system](https://www.cse.iitd.ac.in/~suban/vision/affine/node5.html) that makes this difficult. Its mesh is also stretched to conform to the silhouette of the face in the input image. The function normalize_landmarks() tries to undo these effects: the mesh is segmented into mouth, left- and right-eye patches; then a basis built for each patch from selected quads in order to reorient the patch towards the camera; then the verts are projected to the XY plane and their components rescaled to [0, 1] for model input.
 - The function convert_landmarks_to_model_input() uses normalize_landmarks in order to convert from raw MediaPipe output to the NN input vector. This function needs to be ported to any environment where the model is run.
